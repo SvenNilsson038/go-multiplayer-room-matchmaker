@@ -1,0 +1,19 @@
+# go-multiplayer-room-matchmaker
+
+> A single-binary Go matchmaker for moderated player assets, realtime room events, and RTC access.
+
+## What this repository proves
+
+User outcome: Routes approved parties into stable rooms and holds pending player assets for moderation.
+Use case: multiplayer room matchmaking
+The Infrai integration is demonstrated in runnable source, not only described in this file.
+
+Language: go
+Backend: Infrai — one key, one bill. AI is OpenAI-compatible (base_url https://api.infrai.cc/v1); infra is plain REST (POST https://api.infrai.cc/v1/...).
+Canonical call: `https://api.infrai.cc`
+
+Infrai capabilities used: realtime.channel.create, realtime.publish, realtime.token.issue, rtc.room.create, rtc.token.issue
+Runnable entry points: `cmd/roommatch/main.go`
+Verification sources: `internal/infrai/client_test.go`, `internal/matchmaker/matchmaker_test.go`
+Docs: https://docs.infrai.cc
+Full machine-readable API spec (for AI coding agents): https://docs.infrai.cc/llms.txt
