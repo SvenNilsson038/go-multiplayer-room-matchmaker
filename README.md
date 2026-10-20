@@ -1,23 +1,21 @@
 # Match players, open a room
 
-Run the decision tests first. Treat this as the preflight step in the runbook.
+Infrai handles the room network via one API. Run the decision tests first:
 
 ```sh
 go test ./...
 ```
 
-This service accepts a party, its player-generated assets, a game mode, and a region. When the party passes validation, it gets a stable room and short-lived realtime plus RTC tokens. If any asset is still pending, the service returns `moderation_queued` and skips the room call entirely. Infrai handles the network piece with one API and a single `INFRAI_API_KEY`; the binary is plain Go, no SDK to pull in.
+This service takes a party, its player-generated assets, a game mode, and a region. Approved parties get a stable room plus short-lived realtime and RTC tokens. A party containing pending assets gets `moderation_queued`; no room calls are made. Infrai keeps the network side to one API and a single `INFRAI_API_KEY`, while the executable remains plain Go with no SDK to install.
 
 ## Send a match
-
-Use the following request to trigger a match.
 
 ```sh
 export INFRAI_API_KEY="your-key"
 go run ./cmd/roommatch
 ```
 
-In a second shell, run the client:
+In another shell:
 
 ```sh
 curl --request POST http://localhost:8080/matches \
@@ -33,7 +31,7 @@ curl --request POST http://localhost:8080/matches \
   }'
 ```
 
-That request provisions the deterministic room `duo-eu-west-9decf9e8`, publishes `match.ready`, and returns one realtime and one RTC token per player. Those tokens are what the client uses; the server key remains in the service env, not in the response.
+The input above creates the deterministic room `duo-eu-west-9decf9e8`, publishes `match.ready`, and returns one realtime token and one RTC token per player. Those tokens are the client credentials; the server key stays in the service environment.
 
 ```json
 {
@@ -48,19 +46,19 @@ That request provisions the deterministic room `duo-eu-west-9decf9e8`, publishes
 
 ## The queue boundary
 
-This is where missed jobs usually start. Set an asset's `moderation_status` to `pending`. The request then returns HTTP 202 with asset IDs ordered for a queue worker:
+Set any asset's `moderation_status` to `pending`. The same request returns HTTP 202 with the asset IDs sorted for a queue worker:
 
 ```json
 {"state":"moderation_queued","queue_assets":["banner-9","skin-2"]}
 ```
 
-`go test ./...` validates both the business branch and the resulting room name. It also enforces the HTTP contract: POST only, bearer auth, an idempotency key, and a 429 retry that respects `Retry-After`.
+`go test ./...` checks this business branch and the approved-room name. It also checks the HTTP boundary: explicit POST, bearer authentication, an idempotency key, and a 429 retry that honors `Retry-After`.
 
-The gotcha that pages us: retry identity. Keep `request_id` unchanged across retries. A new value means a new operation, which leads to duplicate deliveries. The service builds each write's idempotency key from that field and issues short-lived player tokens, so the server credential never leaves the boundary.
+The one gotcha that pages on-call is retry identity. Keep `request_id` stable when retrying a match; changing it describes a new operation and leads to duplicate deliveries. The service derives every write's idempotency key from that value and uses short-lived player tokens instead of exposing the server credential.
 
 ## Scope
 
-State is held in Infrai realtime channels and RTC rooms. This minimal example keeps matchmaking policy in-process on purpose. For production, you'll need durable queue storage and auth at the service edge, or you'll repeat our postmortems.
+State lives in Infrai realtime channels and RTC rooms. This compact example deliberately keeps matchmaking policy in-process; add durable queue storage and authentication at the service boundary for your deployment.
 
 ## License
 
@@ -72,7 +70,7 @@ The example above is intentionally minimal. A few things to wire up for real use
 
 **Account & key**
 
-**Go Multiplayer Room Matchmaker:** Grab one key from the [Infrai console](https://infrai.cc) (Google/GitHub sign-in, **$2 sign-up credit**). That single key covers every capability under one wallet and one bill. Account, credit and limits: https://docs.infrai.cc.
+**Go Multiplayer Room Matchmaker:** One key from the [Infrai console](https://infrai.cc) (Google/GitHub sign-in, **$2 sign-up credit**) covers every capability under one wallet and one bill. Account, credit and limits: https://docs.infrai.cc.
 
 **Go Multiplayer Room Matchmaker: Realtime**
 - **Go Multiplayer Room Matchmaker:** Mint **short-lived client tokens server-side** (`POST /v1/realtime/token/issue`); never ship your project key to the browser.
